@@ -6,16 +6,22 @@ import {
   addBoardMember,
   createQuest,
   createUser,
+  getQuest,
   listBoardMembers,
   listBoards,
+  listPendingNudges,
   listQuestsByBoard,
   listSignupsForQuest,
+  resolveNudge,
   upsertSignup,
   type SignupResponse,
 } from "./db.ts";
+import { logActivities, logActivity } from "./clickhouse.ts";
+import { runNudgePipeline } from "./nudges.ts";
 import { renderQuestsPage } from "./render.ts";
 import { renderNewQuestPage } from "./render_new_quest.ts";
 import { renderSignupPage } from "./render_signup.ts";
+import { renderNudgesPage } from "./render_nudges.ts";
 
 function getCookie(req: Request, name: string): string | undefined {
   const header = req.headers.get("cookie");
@@ -59,7 +65,20 @@ async function renderBoard(req: Request): Promise<Response> {
     ),
   );
 
-  const html = renderQuestsPage(board, quests, signupsByQuest, users, uid);
+  const debug = new URL(req.url).searchParams.get("debug") === "1";
+  const html = renderQuestsPage(board, quests, signupsByQuest, users, uid, debug);
+
+  // Fire-and-forget: don't let ClickHouse being down break the page.
+  logActivities(
+    quests.map((q) => ({
+      eventType: "quest_viewed",
+      userId: uid,
+      boardId: board.id,
+      questId: q.id,
+      category: q.category,
+    })),
+  ).catch((err) => console.error("activity log (quest_viewed) failed:", err));
+
   return new Response(html, { headers });
 }
 
@@ -198,7 +217,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       );
     }
 
-    await createQuest({
+    const quest = await createQuest({
       boardId: board!.id,
       authorId: uid,
       title,
@@ -206,6 +225,14 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       category,
       capacity,
     });
+
+    logActivity({
+      eventType: "quest_posted",
+      userId: uid,
+      boardId: board!.id,
+      questId: quest.id,
+      category: quest.category,
+    }).catch((err) => console.error("activity log (quest_posted) failed:", err));
 
     return Response.redirect(new URL("/quests", url), 303);
   }
@@ -223,7 +250,48 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       return new Response("Invalid RSVP response", { status: 400 });
     }
     await upsertSignup(rsvpMatch[1], uid, response as SignupResponse);
+
+    const quest = await getQuest(rsvpMatch[1]);
+    if (quest) {
+      logActivity({
+        eventType: "signup",
+        userId: uid,
+        boardId: board!.id,
+        questId: quest.id,
+        category: quest.category,
+        response,
+      }).catch((err) => console.error("activity log (signup) failed:", err));
+    }
+
     return Response.redirect(new URL("/quests", url), 303);
+  }
+
+  if (url.pathname === "/guild-master" && req.method === "GET") {
+    const boards = await listBoards();
+    const board = boards[0];
+    const members = board ? await listBoardMembers(board.id) : [];
+    const usersById = new Map(members.map((u) => [u.id, u]));
+    const nudges = await listPendingNudges();
+    return new Response(renderNudgesPage(nudges, usersById), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+
+  if (url.pathname === "/guild-master/run" && req.method === "POST") {
+    const boards = await listBoards();
+    for (const board of boards) await runNudgePipeline(board.id);
+    return Response.redirect(new URL("/guild-master", url), 303);
+  }
+
+  const resolveMatch = url.pathname.match(/^\/guild-master\/([0-9a-f-]+)\/resolve$/);
+  if (resolveMatch && req.method === "POST") {
+    const form = await req.formData();
+    const status = form.get("status");
+    if (status !== "contacted" && status !== "dismissed") {
+      return new Response("Invalid status", { status: 400 });
+    }
+    await resolveNudge(resolveMatch[1], status);
+    return Response.redirect(new URL("/guild-master", url), 303);
   }
 
   return serveDir(req, { fsRoot: "public" });

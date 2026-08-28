@@ -143,6 +143,7 @@ export function renderQuestsPage(
   signupsByQuest: Map<string, QuestSignup[]>,
   users: User[],
   currentUserId: string,
+  debug: boolean = false,
 ): string {
   const usersById = new Map(users.map((u) => [u.id, u]));
 
@@ -150,13 +151,29 @@ export function renderQuestsPage(
     .map((q, i) => renderQuestCard(q, signupsByQuest.get(q.id) ?? [], usersById, currentUserId, i))
     .join("\n");
 
-  const userOptions = users
-    .map((u) =>
-      `<option value="${u.id}"${u.id === currentUserId ? " selected" : ""}>${
-        escapeHtml(u.display_name)
-      }</option>`
-    )
-    .join("");
+  const currentUser = usersById.get(currentUserId);
+
+  const actingAs = debug
+    ? (() => {
+      const userOptions = users
+        .map((u) =>
+          `<option value="${u.id}"${u.id === currentUserId ? " selected" : ""}>${
+            escapeHtml(u.display_name)
+          }</option>`
+        )
+        .join("");
+      return `<form method="get" action="/act-as" class="topbar__who">
+      <span>Acting as</span>
+      <select name="uid" onchange="this.form.submit()">${userOptions}</select>
+      <a href="/signup" class="topbar__signup-link">new here? create an account</a>
+      <a href="/guild-master" class="topbar__signup-link">guild master queue</a>
+    </form>`;
+    })()
+    : `<div class="topbar__who">
+      <span>Acting as ${escapeHtml(currentUser?.display_name ?? "someone")}</span>
+      <a href="/signup" class="topbar__signup-link">new here? create an account</a>
+      <a href="/guild-master" class="topbar__signup-link">guild master queue</a>
+    </div>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -173,11 +190,7 @@ export function renderQuestsPage(
 <div class="page">
   <div class="topbar">
     <span>${escapeHtml(board.name)} · ${quests.length} open quest${quests.length === 1 ? "" : "s"}</span>
-    <form method="get" action="/act-as" class="topbar__who">
-      <span>Acting as</span>
-      <select name="uid" onchange="this.form.submit()">${userOptions}</select>
-      <a href="/signup" class="topbar__signup-link">new here? create an account</a>
-    </form>
+    ${actingAs}
   </div>
   <div class="quest-board">
     <div class="quest-board__header">
