@@ -113,7 +113,7 @@ now appears (using the existing `renderQuestCard`).
 
 ## Task 3 — Quest Board page (polish the existing one)
 
-**Status:** unclaimed
+**Status:** claimed by claude-task3-polish
 
 Good news: this one's mostly built. `GET /quests` in `server.ts` +
 `renderQuestsPage`/`renderQuestCard` in `render.ts` already render live data
