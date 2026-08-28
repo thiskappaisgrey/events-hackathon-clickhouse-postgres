@@ -76,7 +76,7 @@ form, and landing on `/quests` acting as the new user, who shows up in the
 
 ## Task 2 — Add Event (Quest) page
 
-**Status:** unclaimed
+**Status:** claimed by claude-session-task2
 
 A page for a logged-in user to post a new quest — "add ideas of things you'd
 already like to do" per `pitch.md`.

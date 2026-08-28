@@ -176,6 +176,7 @@ export function renderQuestsPage(
     <form method="get" action="/act-as" class="topbar__who">
       <span>Acting as</span>
       <select name="uid" onchange="this.form.submit()">${userOptions}</select>
+      <a href="/signup" class="topbar__signup-link">new here? create an account</a>
     </form>
   </div>
   <div class="quest-board">
