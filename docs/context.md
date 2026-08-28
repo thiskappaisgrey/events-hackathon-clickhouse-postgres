@@ -21,11 +21,17 @@ strangers/acquaintances. Flow:
   signups, the moderator nudge queue. Schema: `db/postgres/schema.sql`.
 - **ClickHouse** — write-only activity log (`quest_viewed`, `quest_posted`,
   `signup`) that dormancy detection and affinity ranking query against.
-  Postgres is never read for either of those. Schema + the two draft queries
-  (dormancy, affinity) live in `db/clickhouse/schema.sql` as comments — not
-  wired into app code yet. There's **no cross-DB join**: the app fetches a
-  board's member ids from Postgres, passes them into the ClickHouse query,
-  then writes results back into the Postgres `nudges` table.
+  Postgres is never read for either of those. Schema lives in
+  `db/clickhouse/schema.sql`, client + queries in `src/clickhouse.ts` (uses
+  `@clickhouse/client-web`). `server.ts` fires an insert (fire-and-forget,
+  logged not thrown on failure) on each of the three write paths. There's
+  **no cross-DB join**: `src/nudges.ts`'s `runNudgePipeline` fetches a
+  board's member ids from Postgres, passes them into the ClickHouse dormancy
+  + never-engaged queries, then writes results back into the Postgres
+  `nudges` table (skipping users who already have a pending nudge for the
+  same reason). Affinity ranking (`getAffinityScores`) is implemented but
+  not called from anywhere yet — next step would be using it to rank quests
+  shown to a user.
 - **Datastar** (`public/vendor/datastar.js`, vendored self-contained bundle,
   version `1.0.0-beta.11`) — the frontend hypermedia framework. Not wired into
   any page yet.
@@ -59,11 +65,23 @@ strangers/acquaintances. Flow:
   of its markup is used by `src/server.ts` beyond being served as a static
   file.
 
+- `src/clickhouse.ts` — ClickHouse client + `logActivity`/`logActivities`
+  (insert), `getDormantUsers`/`getUnengagedUsers`/`getAffinityScores`
+  (query). `deno run -A src/clickhouse.ts` is a smoke test (needs `just up`
+  first, and the schema applied — see Justfile's `ch-up`/`ch-schema`).
+- `src/nudges.ts` — `runNudgePipeline(boardId)`: the dormancy → nudge job.
+  `deno task nudges:run` runs it for every board from the CLI; `server.ts`
+  also exposes it as `POST /guild-master/run`.
+- `src/render_nudges.ts` + `GET/POST /guild-master*` routes in `server.ts` —
+  the Guild Master queue page: lists pending nudges, a button to trigger the
+  dormancy check, and "reached out"/"dismiss" actions per row (Postgres
+  `resolveNudge`). Linked from the quest board topbar.
+
 ## Not built yet
 
-- No actual page wires up Datastar or renders live data from `db.ts` —
-  `public/Quest Board.html` is static mockup, `src/server.ts` just serves
-  files.
-- Dormancy/affinity ClickHouse queries are drafted as SQL comments only, not
-  called from app code; nothing writes to `activity_log` yet.
+- No actual page wires up Datastar for the RSVP buttons / acting-as switcher
+  — those still full-page-reload. `public/Quest Board.html` is a static
+  mockup, not live markup.
+- `getAffinityScores` (ClickHouse) isn't used anywhere yet — no ranking of
+  "likely yeses" when a new quest is posted.
 - No auth/session layer.

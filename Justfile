@@ -31,14 +31,27 @@ pg-down:
 psql:
     psql -h /tmp -p 5432 -U hackathon -d board
 
-# start clickhouse in the background
+# start clickhouse in the background, applying schema.sql once it's up
 ch-up:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "{{chdata}}"
     clickhouse server -- --path="{{chdata}}" --http_port=8123 --tcp_port=9000 &
     echo $! > "{{chpid}}"
+    for i in $(seq 1 30); do
+        curl -sf http://localhost:8123/ping >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    clickhouse client --queries-file db/clickhouse/schema.sql
     echo "clickhouse: http 8123 / tcp 9000"
+
+# re-apply the clickhouse schema (create table if not exists — safe to re-run)
+ch-schema:
+    clickhouse client --queries-file db/clickhouse/schema.sql
+
+# open a clickhouse client shell
+ch:
+    clickhouse client
 
 # stop clickhouse
 ch-down:

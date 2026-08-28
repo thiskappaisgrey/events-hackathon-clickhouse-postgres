@@ -3,7 +3,7 @@
 -- app layer. This is what dormancy detection and affinity ranking query
 -- against — Postgres is never read for either.
 
-create table activity_log
+create table if not exists activity_log
 (
     event_time  DateTime64(3) default now64(),
     event_type  Enum8('quest_viewed' = 1, 'quest_posted' = 2, 'signup' = 3),

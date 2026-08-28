@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@clickhouse/client-web": "npm:@clickhouse/client-web@^1.23.1",
     "@db/postgres": "jsr:@db/postgres@^0.19.5",
     "@std/http/file-server": "jsr:@std/http@^1/file-server"
   },
@@ -7,6 +8,7 @@
     "db:check": "deno run -A src/db.ts",
     "seed": "deno run -A src/seed.ts",
     "test": "deno test -A src/db_test.ts",
-    "dev": "deno run -A --watch-hmr=src src/server.ts"
+    "dev": "deno run -A --watch-hmr=src src/server.ts",
+    "nudges:run": "deno run -A src/nudges.ts"
   }
 }

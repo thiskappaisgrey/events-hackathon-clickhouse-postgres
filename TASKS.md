@@ -133,9 +133,42 @@ check current `server.ts`/`render.ts` first):
 - Empty states: no quests yet (link to Task 2's `/quests/new`), no users yet
   (link to Task 1's `/signup`) — currently `server.ts` just 503s with a
   "run `deno task seed`" message, which is a dev-only crutch.
-- Multi-board support is explicitly out of scope for now — `listBoards()[0]`
-  is fine to keep hardcoding.
+- Multi-board support was out of scope when this task was written; see
+  Task 4 below — that's now happening, so `listBoards()[0]` will need to
+  become board-aware.
 
 **Acceptance:** `/quests` looks and behaves like the `public/Quest Board.html`
 mockup (turn 2a) with real data, and at least the RSVP interaction no longer
 full-page-reloads.
+
+---
+
+## Task 4 — Category boards (art / learning / social / nature)
+
+**Status:** unclaimed
+
+Why: one quest board mixing standup comedy with category theory with swing
+dancing doesn't feel coherent — split into themed boards per interest area
+so each one reads as its own place.
+
+Scope (v1):
+- Seed 4 real `boards` rows (not user-creatable yet): **art** (standup
+  comedy, guitar), **learning** (functional programming, category theory,
+  databases), **social** (swing dancing, malls, cross-town hikes, new
+  restaurants), **nature** (hiking, bird watching, being in nature).
+- Every user auto-joins all 4 on creation (signup flow + seed script) — no
+  join/leave UI, no board-creation UI.
+- `server.ts` currently hardcodes `boards[0]` at ~10 call sites — needs to
+  become board-aware (e.g. `/quests/:boardId`) instead.
+- A quest belongs to whichever board it's posted from; the existing
+  per-quest `category` field (`'hiking'`, `'comedy'`, etc.) is untouched and
+  orthogonal — no new mapping between it and the 4 boards.
+- Simple nav to switch between the 4 boards.
+- Theming: same `.quest-card` layout/design for all boards, just a
+  different accent color per board (keep it simple).
+
+Out of scope: user-created boards, join/leave flow, per-board fonts or
+layout differences, remapping quest `category` to board.
+
+Next step: pick board-aware routing in `server.ts`/`render.ts`, then seed
+the 4 boards.

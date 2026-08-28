@@ -166,3 +166,16 @@ body {
 .quest-board__new-link:hover { text-decoration: underline; }
 .signup-card__footer { margin: 22px 0 0; text-align: center; font-size: 12px; }
 .signup-card__footer a { color: #8c491a; }
+
+.nudge-card { max-width: 460px; }
+.nudge-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.nudge-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-radius: 12px; background: #fff;
+  border: 1px solid rgba(100, 92, 80, .18);
+}
+.nudge-row--empty { justify-content: center; color: #82796a; font-size: 13px; }
+.nudge-row__who { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: #402310; }
+.nudge-row__reason { font-size: 12px; color: #82796a; }
+.nudge-row__actions { display: flex; gap: 8px; }
+.nudge-row__actions .quest-btn { padding: 6px 12px; font-size: 12px; }
