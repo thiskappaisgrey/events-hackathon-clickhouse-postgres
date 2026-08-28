@@ -1,0 +1,131 @@
+/* Quest Board — extracted from the design mockup (Quest Board.html, turn 2a).
+   Same classes/tokens, driven by real data instead of static markup. */
+
+:root {
+  --font-heading: 'Caprasimo', ui-serif, Georgia, serif;
+  --font-body: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  --shadow-md: 0 3px 10px rgba(46, 43, 37, .16);
+  --shadow-lg: 0 12px 32px rgba(46, 43, 37, .18);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 var(--font-body);
+  background: #2e2b25;
+  color: #201e1d;
+}
+
+.page {
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  color: #eee7db;
+  font-size: 13px;
+}
+
+.topbar__who { display: flex; align-items: center; gap: 10px; }
+
+.topbar select {
+  font: 600 13px var(--font-body);
+  background: #40230f;
+  color: #f9f4ed;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.quest-board {
+  padding: 38px 40px 46px;
+  border-radius: 20px;
+  background-image: repeating-linear-gradient(180deg, #4a2a14 0 54px, #402310 54px 56px, #54301a 56px 110px, #402310 110px 112px);
+}
+
+.quest-board__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.quest-board__plate {
+  display: inline-block;
+  background: #8c491a;
+  border-radius: 16px;
+  padding: 12px 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+.quest-board__title { font: 400 32px var(--font-heading); color: #ffe1d0; letter-spacing: .02em; }
+.quest-board__subtitle { margin: 14px 0 0; font: 600 13px var(--font-body); color: #f6a06b; }
+
+.quest-board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 28px;
+}
+
+.quest-card {
+  position: relative;
+  padding: 30px 26px 24px;
+  background: linear-gradient(var(--qc-angle), var(--qc-bg-1), var(--qc-bg-2) 55%, var(--qc-bg-3));
+  box-shadow: var(--shadow-lg);
+  clip-path: var(--qc-clip);
+}
+
+.quest-card__pin {
+  position: absolute; top: 12px; left: 50%; margin-left: -8px;
+  width: 16px; height: 16px; border-radius: 999px;
+  background: var(--qc-dot);
+  box-shadow: 0 2px 4px rgba(46, 43, 37, .45), inset 0 -2px 3px rgba(0, 0, 0, .2);
+  display: block;
+}
+
+.quest-card__tag {
+  text-align: center; font: 400 22px var(--font-heading); color: var(--qc-ink);
+  letter-spacing: .05em; margin: 14px 0 4px;
+}
+
+.quest-card__status {
+  text-align: center; white-space: nowrap; font: 600 10.5px var(--font-body);
+  letter-spacing: .16em; text-transform: uppercase; color: var(--qc-muted);
+  margin-bottom: 18px;
+}
+
+.quest-card h3 { margin: 0 0 10px; font-size: 22px; }
+.quest-card__desc { margin: 0 0 18px; font-size: 13.5px; line-height: 1.65; color: #474238; }
+
+.quest-card__footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 14px; border-top: 1px solid var(--qc-divider);
+}
+.quest-card__footer time { font-size: 12px; color: var(--qc-muted-dark); }
+
+.quest-avatars { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.quest-avatar {
+  width: 32px; height: 32px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 10.5px var(--font-body);
+}
+.quest-avatar--empty { border: 1.5px dashed var(--qc-empty-1); display: block; }
+
+.quest-rsvp { display: flex; gap: 8px; }
+.quest-btn {
+  white-space: nowrap; font: 400 14px var(--font-heading);
+  border: 1px solid transparent; padding: 9px 18px; border-radius: 999px; cursor: pointer;
+}
+.quest-btn--solid { background: var(--qc-dot); color: var(--qc-btn-ink); }
+.quest-btn--outline { background: transparent; color: #8c491a; border: 1.5px dashed rgba(140, 73, 26, .6); }
+.quest-btn--ghost { background: transparent; color: #201e1d; border: 1px solid rgba(32, 30, 29, .25); }
+.quest-btn--active { outline: 2px solid var(--qc-ink); outline-offset: 1px; }

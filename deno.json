@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@db/postgres": "jsr:@db/postgres@^0.19.5",
+    "@std/http/file-server": "jsr:@std/http@^1/file-server"
+  },
+  "tasks": {
+    "db:check": "deno run -A src/db.ts",
+    "seed": "deno run -A src/seed.ts",
+    "test": "deno test -A src/db_test.ts",
+    "dev": "deno run -A --watch-hmr=src src/server.ts"
+  }
+}
