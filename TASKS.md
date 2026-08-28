@@ -47,7 +47,7 @@ other:
 
 ## Task 1 — Create User page
 
-**Status:** unclaimed
+**Status:** claimed by claude-session-task1
 
 A simple signup/onboarding page: pick a handle + display name, become a user,
 land on the quest board acting as that user.
