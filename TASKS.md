@@ -79,7 +79,13 @@ form, and landing on `/quests` acting as the new user, who shows up in the
 
 ## Task 2 — Add Event (Quest) page
 
-**Status:** claimed by claude-session-task2
+**Status:** done — `GET/POST /quests/new` in `server.ts`, form in
+`src/render_new_quest.ts`, styles appended to `quest-board.css`, "+ post a
+quest" link added to `.quest-board__header` in `render.ts`. Tested against the
+running dev server: valid submit creates the quest and redirects to `/quests`
+where the card appears; missing title/category and non-positive capacity
+re-render the form with an error (400); no acting user redirects `/quests/new`
+to `/signup`.
 
 A page for a logged-in user to post a new quest — "add ideas of things you'd
 already like to do" per `pitch.md`.
