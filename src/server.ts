@@ -3,6 +3,9 @@
 
 import { serveDir } from "@std/http/file-server";
 import {
+  addBoardMember,
+  createQuest,
+  createUser,
   listBoardMembers,
   listBoards,
   listQuestsByBoard,
@@ -11,6 +14,8 @@ import {
   type SignupResponse,
 } from "./db.ts";
 import { renderQuestsPage } from "./render.ts";
+import { renderNewQuestPage } from "./render_new_quest.ts";
+import { renderSignupPage } from "./render_signup.ts";
 
 function getCookie(req: Request, name: string): string | undefined {
   const header = req.headers.get("cookie");
@@ -73,6 +78,56 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     return await renderBoard(req);
   }
 
+  if (url.pathname === "/signup" && req.method === "GET") {
+    return new Response(renderSignupPage(), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+
+  if (url.pathname === "/signup" && req.method === "POST") {
+    const form = await req.formData();
+    const handle = String(form.get("handle") ?? "").trim();
+    const displayName = String(form.get("displayName") ?? "").trim();
+
+    if (!handle || !displayName) {
+      return new Response(renderSignupPage({ error: "Handle and display name are both required.", handle, displayName }), {
+        status: 400,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+
+    let user;
+    try {
+      user = await createUser(handle, displayName);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const isConflict = message.includes("duplicate key") || message.includes("unique");
+      return new Response(
+        renderSignupPage({
+          error: isConflict ? `Handle "${handle}" is already taken — try another.` : "Something went wrong creating your account.",
+          handle,
+          displayName,
+        }),
+        {
+          status: isConflict ? 409 : 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+
+    const boards = await listBoards();
+    const board = boards[0];
+    if (board) await addBoardMember(board.id, user.id);
+
+    return new Response(null, {
+      status: 303,
+      headers: {
+        location: "/quests",
+        "set-cookie": `uid=${user.id}; Path=/; SameSite=Lax`,
+      },
+    });
+  }
+
   if (url.pathname === "/act-as" && req.method === "GET") {
     const uid = url.searchParams.get("uid");
     const boards = await listBoards();
@@ -88,6 +143,71 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
         "set-cookie": `uid=${uid}; Path=/; SameSite=Lax`,
       },
     });
+  }
+
+  if (url.pathname === "/quests/new" && req.method === "GET") {
+    const boards = await listBoards();
+    const board = boards[0];
+    const uid = board ? await currentUserId(req, board.id) : undefined;
+    if (!uid) return Response.redirect(new URL("/signup", url), 303);
+
+    return new Response(renderNewQuestPage(), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+
+  if (url.pathname === "/quests/new" && req.method === "POST") {
+    const boards = await listBoards();
+    const board = boards[0];
+    const uid = board ? await currentUserId(req, board.id) : undefined;
+    if (!uid) return Response.redirect(new URL("/signup", url), 303);
+
+    const form = await req.formData();
+    const title = String(form.get("title") ?? "").trim();
+    const description = String(form.get("description") ?? "").trim();
+    const category = String(form.get("category") ?? "").trim();
+    const capacityRaw = String(form.get("capacity") ?? "").trim();
+
+    let capacity: number | undefined;
+    if (capacityRaw) {
+      capacity = Number(capacityRaw);
+      if (!Number.isInteger(capacity) || capacity <= 0) {
+        return new Response(
+          renderNewQuestPage({
+            error: "Capacity must be a positive whole number.",
+            title,
+            description,
+            category,
+            capacity: capacityRaw,
+          }),
+          { status: 400, headers: { "content-type": "text/html; charset=utf-8" } },
+        );
+      }
+    }
+
+    if (!title || !category) {
+      return new Response(
+        renderNewQuestPage({
+          error: "Title and category are both required.",
+          title,
+          description,
+          category,
+          capacity: capacityRaw,
+        }),
+        { status: 400, headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    await createQuest({
+      boardId: board!.id,
+      authorId: uid,
+      title,
+      description: description || undefined,
+      category,
+      capacity,
+    });
+
+    return Response.redirect(new URL("/quests", url), 303);
   }
 
   const rsvpMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)\/rsvp$/);

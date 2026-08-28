@@ -185,6 +185,7 @@ export function renderQuestsPage(
         <div class="quest-board__plate"><span class="quest-board__title">The Quest Board</span></div>
         <p class="quest-board__subtitle">${escapeHtml(board.name)} · take one and it's yours to show up to</p>
       </div>
+      <a href="/quests/new" class="quest-board__new-link">+ post a quest</a>
     </div>
     <div class="quest-board__grid">
       ${cards}

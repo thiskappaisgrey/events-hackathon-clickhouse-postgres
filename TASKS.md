@@ -47,7 +47,10 @@ other:
 
 ## Task 1 — Create User page
 
-**Status:** claimed by claude-session-task1
+**Status:** done — `GET/POST /signup` in `server.ts`, form in `src/render_signup.ts`,
+styles appended to `quest-board.css`, link added near `topbar__who` in
+`render.ts`. Tested: fresh signup lands on `/quests` acting as the new user,
+duplicate handle re-renders the form with an error, new user can RSVP.
 
 A simple signup/onboarding page: pick a handle + display name, become a user,
 land on the quest board acting as that user.

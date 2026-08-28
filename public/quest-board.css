@@ -153,6 +153,16 @@ body {
   font: 400 15px var(--font-body); padding: 10px 14px; border-radius: 10px;
   border: 1px solid rgba(100, 92, 80, .28); background: #fff;
 }
+.signup-form__field select, .signup-form__field textarea {
+  font: 400 15px var(--font-body); padding: 10px 14px; border-radius: 10px;
+  border: 1px solid rgba(100, 92, 80, .28); background: #fff; resize: vertical;
+}
 .signup-form__submit { margin-top: 6px; align-self: center; }
+.quest-board__new-link {
+  display: inline-block; margin-top: 10px; font: 400 14px var(--font-heading);
+  color: #8c491a; text-decoration: none; border: 1.5px dashed rgba(140, 73, 26, .6);
+  padding: 8px 16px; border-radius: 999px;
+}
+.quest-board__new-link:hover { text-decoration: underline; }
 .signup-card__footer { margin: 22px 0 0; text-align: center; font-size: 12px; }
 .signup-card__footer a { color: #8c491a; }
