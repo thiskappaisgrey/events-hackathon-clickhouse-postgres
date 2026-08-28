@@ -18,10 +18,12 @@ import {
   upsertSignup,
   type SignupResponse,
 } from "./db.ts";
-import { logActivities, logActivity } from "./clickhouse.ts";
+import { getTrendingCategories, logActivities, logActivity } from "./clickhouse.ts";
 import { runNudgePipeline } from "./nudges.ts";
-import { renderQuestsPage } from "./render.ts";
+import { paletteIndexFor, renderEmptyBoardPage, renderQuestCard, renderQuestsPage } from "./render.ts";
 import { renderNewQuestPage } from "./render_new_quest.ts";
+import { boardNameForCategory, CATEGORIES } from "./categories.ts";
+import { suggestQuests } from "./ai.ts";
 import { renderSignupPage } from "./render_signup.ts";
 import { renderNudgesPage } from "./render_nudges.ts";
 
@@ -33,6 +35,16 @@ function getCookie(req: Request, name: string): string | undefined {
     if (k === name) return v.join("=");
   }
   return undefined;
+}
+
+// public/vendor/datastar.js turns out to be a core-only build (signals +
+// computed only — no data-on/backend-action plugins), so the RSVP/acting-as
+// no-reload wiring below is done with a small hand-rolled fetch+swap script
+// (public/quest-board.js) instead of literal Datastar attributes. Requests
+// from that script set this header; plain <form> posts (no-JS) don't, and
+// keep getting the classic redirect.
+function isFetchRequest(req: Request): boolean {
+  return req.headers.get("x-requested-with") === "fetch";
 }
 
 async function currentUserId(req: Request, boardId: string): Promise<string | undefined> {
@@ -60,7 +72,9 @@ async function renderBoard(req: Request, boardId: string): Promise<Response> {
     if (uid) headers.append("set-cookie", `uid=${uid}; Path=/; SameSite=Lax`);
   }
   if (!uid) {
-    return new Response("No users seeded yet — run `deno task seed`.", { status: 503 });
+    return new Response(renderEmptyBoardPage(board, boards), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
   }
 
   const quests = await listQuestsByBoard(board.id);
@@ -167,11 +181,21 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     if (!user) {
       return new Response("Unknown user", { status: 400 });
     }
+    const setCookie = `uid=${uid}; Path=/; SameSite=Lax`;
+    const boardId = url.searchParams.get("boardId");
+    if (isFetchRequest(req) && boardId) {
+      const boardReq = new Request(new URL(`/quests/${boardId}`, url), {
+        headers: { cookie: `uid=${uid}` },
+      });
+      const res = await renderBoard(boardReq, boardId);
+      res.headers.append("set-cookie", setCookie);
+      return res;
+    }
     return new Response(null, {
       status: 303,
       headers: {
         location: "/quests",
-        "set-cookie": `uid=${uid}; Path=/; SameSite=Lax`,
+        "set-cookie": setCookie,
       },
     });
   }
@@ -215,10 +239,14 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       }
     }
 
-    if (!title || !category) {
+    const targetBoardName = category ? boardNameForCategory(category) : undefined;
+
+    if (!title || !category || !targetBoardName) {
       return new Response(
         renderNewQuestPage(boardId, {
-          error: "Title and category are both required.",
+          error: !title || !category
+            ? "Title and category are both required."
+            : "Unknown category — pick one from the list.",
           title,
           description,
           category,
@@ -228,8 +256,18 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       );
     }
 
+    // The category picked determines which board the quest actually belongs
+    // on (see src/categories.ts) — not the board whose "post a quest" link
+    // happened to be clicked, so a hiking quest always lands on Nature even
+    // if it was opened from Art's page.
+    const boards = await listBoards();
+    const targetBoard = boards.find((b) => b.name === targetBoardName) ?? boards.find((b) => b.id === boardId);
+    if (!targetBoard) {
+      return new Response("Unknown board", { status: 404 });
+    }
+
     const quest = await createQuest({
-      boardId,
+      boardId: targetBoard.id,
       authorId: uid,
       title,
       description: description || undefined,
@@ -240,12 +278,45 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     logActivity({
       eventType: "quest_posted",
       userId: uid,
-      boardId,
+      boardId: targetBoard.id,
       questId: quest.id,
       category: quest.category,
     }).catch((err) => console.error("activity log (quest_posted) failed:", err));
 
-    return Response.redirect(new URL(`/quests/${boardId}`, url), 303);
+    return Response.redirect(new URL(`/quests/${targetBoard.id}`, url), 303);
+  }
+
+  const suggestMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)\/suggest$/);
+  if (suggestMatch && req.method === "POST") {
+    const boardId = suggestMatch[1];
+    let body: { childhoodJoy?: string; energy?: string; setting?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    const trending = await getTrendingCategories(boardId).catch((err) => {
+      console.error("getTrendingCategories failed:", err);
+      return [] as string[];
+    });
+
+    try {
+      const suggestions = await suggestQuests({
+        childhoodJoy: body.childhoodJoy ?? "",
+        energy: body.energy ?? "",
+        setting: body.setting ?? "",
+        trendingCategories: trending,
+        categories: CATEGORIES,
+      });
+      return Response.json({ suggestions });
+    } catch (err) {
+      console.error("suggestQuests failed:", err);
+      return Response.json(
+        { suggestions: [], error: "Couldn't come up with ideas right now — try posting your own." },
+        { status: 502 },
+      );
+    }
   }
 
   const rsvpMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)\/rsvp$/);
@@ -271,6 +342,16 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       category: quest.category,
       response,
     }).catch((err) => console.error("activity log (signup) failed:", err));
+
+    if (isFetchRequest(req)) {
+      const [signups, members] = await Promise.all([
+        listSignupsForQuest(quest.id),
+        listBoardMembers(quest.board_id),
+      ]);
+      const usersById = new Map(members.map((u) => [u.id, u]));
+      const card = renderQuestCard(quest, signups, usersById, uid, paletteIndexFor(quest.id));
+      return new Response(card, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
 
     return Response.redirect(new URL(`/quests/${quest.board_id}`, url), 303);
   }

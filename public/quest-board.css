@@ -6,6 +6,8 @@
   --font-body: 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --shadow-md: 0 3px 10px rgba(46, 43, 37, .16);
   --shadow-lg: 0 12px 32px rgba(46, 43, 37, .18);
+  --board-accent: #a89d8c;
+  --board-accent-dark: #82796a;
 }
 
 * { box-sizing: border-box; }
@@ -48,7 +50,16 @@ body {
 .quest-board {
   padding: 38px 40px 46px;
   border-radius: 20px;
-  background-image: repeating-linear-gradient(180deg, #4a2a14 0 54px, #402310 54px 56px, #54301a 56px 110px, #402310 110px 112px);
+  /* Kept close to --board-accent-dark (only an 8%/4% white lighten) so cream
+     text laid directly over the planks stays >=4.5:1 for every board. */
+  background-image: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--board-accent-dark) 92%, white 8%) 0 54px,
+    var(--board-accent-dark) 54px 56px,
+    color-mix(in srgb, var(--board-accent-dark) 96%, white 4%) 56px 110px,
+    var(--board-accent-dark) 110px 112px
+  );
+  transition: background-image .2s ease;
 }
 
 .quest-board__header {
@@ -61,14 +72,15 @@ body {
 
 .quest-board__plate {
   display: inline-block;
-  background: #8c491a;
+  background: var(--board-accent-dark);
   border-radius: 16px;
   padding: 12px 28px;
   box-shadow: var(--shadow-lg);
+  transition: background .2s ease;
 }
 
 .quest-board__title { font: 400 32px var(--font-heading); color: #ffe1d0; letter-spacing: .02em; }
-.quest-board__subtitle { margin: 14px 0 0; font: 600 13px var(--font-body); color: #f6a06b; }
+.quest-board__subtitle { margin: 14px 0 0; font: 600 13px var(--font-body); color: #f4efe4; }
 
 .quest-board__grid {
   display: grid;
@@ -130,7 +142,7 @@ body {
 .quest-btn--ghost { background: transparent; color: #201e1d; border: 1px solid rgba(32, 30, 29, .25); }
 .quest-btn--active { outline: 2px solid var(--qc-ink); outline-offset: 1px; }
 
-.topbar__signup-link { color: #f6a06b; font-weight: 600; text-decoration: none; }
+.topbar__signup-link { color: var(--board-accent); font-weight: 600; text-decoration: none; }
 .topbar__signup-link:hover { text-decoration: underline; }
 
 .signup-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
@@ -158,10 +170,12 @@ body {
   border: 1px solid rgba(100, 92, 80, .28); background: #fff; resize: vertical;
 }
 .signup-form__submit { margin-top: 6px; align-self: center; }
+.signup-form__hint { font-size: 11px; color: #82796a; }
 .quest-board__new-link {
   display: inline-block; margin-top: 10px; font: 400 14px var(--font-heading);
-  color: #8c491a; text-decoration: none; border: 1.5px dashed rgba(140, 73, 26, .6);
+  color: #f4efe4; text-decoration: none; border: 1.5px dashed var(--board-accent);
   padding: 8px 16px; border-radius: 999px;
+  transition: border-color .2s ease;
 }
 .quest-board__new-link:hover { text-decoration: underline; }
 .signup-card__footer { margin: 22px 0 0; text-align: center; font-size: 12px; }
@@ -196,3 +210,43 @@ body {
 }
 .board-nav__link:hover { background: rgba(244, 239, 228, .08); }
 .board-nav__link--active { background: var(--board-accent); color: #201e1d; font-weight: 600; }
+
+/* Task 3 polish: empty states + no-JS-friendly "acting as" submit button */
+.quest-board__empty {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 48px 20px; text-align: center;
+  color: #f4efe4;
+}
+.quest-board__empty p { margin: 0; font-size: 15px; opacity: .85; }
+.topbar__go {
+  font: 600 13px var(--font-body);
+  background: transparent;
+  color: #f9f4ed;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.topbar__go:hover { background: rgba(255, 255, 255, .1); }
+
+/* "Not sure what to post?" AI-assist panel on the new-quest page */
+.ai-assist {
+  margin-bottom: 22px; padding: 14px 16px; border-radius: 14px;
+  background: rgba(140, 73, 26, .06); border: 1px dashed rgba(140, 73, 26, .35);
+}
+.ai-assist summary { cursor: pointer; font: 400 15px var(--font-heading); color: #8c491a; }
+.ai-assist__body { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.ai-assist__hint { margin: 0; font-size: 12px; color: #82796a; }
+.ai-suggestions { display: flex; flex-direction: column; gap: 10px; }
+.ai-suggestion {
+  padding: 12px 14px; border-radius: 10px; background: #fff;
+  border: 1px solid rgba(100, 92, 80, .2); font-size: 13px;
+}
+.ai-suggestion__title { display: block; font: 400 15px var(--font-heading); color: #402310; }
+.ai-suggestion__description { margin: 4px 0 8px; color: #4a453d; }
+.ai-suggestion__category {
+  display: inline-block; margin-right: 10px; font-size: 11px; color: #82796a;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.ai-suggestion__use { padding: 6px 14px; font-size: 12px; }

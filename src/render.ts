@@ -58,24 +58,42 @@ const PALETTES = [
 const AVATAR_BG = ["#ffc6a5", "#ccdbb2", "#dcd3c4", "#eee7db", "#e1eecc", "#f6a06b"];
 const AVATAR_INK = ["#643312", "#3d472b", "#645c50", "#474238", "#3d472b", "#40230f"];
 
-// One accent color per themed board (TASKS.md Task 4) — boards are seeded,
-// not user-created, so a name keyed lookup is fine. Falls back to a neutral
-// accent for any board name outside the 4 (shouldn't normally happen).
-const BOARD_ACCENTS: Record<string, string> = {
-  Art: "#c67139",
-  Learning: "#7a8a5e",
-  Social: "#b1568f",
-  Nature: "#3f8f6c",
+// One accent (+ a darker shade for backgrounds/plates) per themed board
+// (TASKS.md Task 4) — boards are seeded, not user-created, so a name keyed
+// lookup is fine. Falls back to a neutral accent for any board name outside
+// the 4 (shouldn't normally happen).
+// Each pair is picked so accent-on-dark, dark-text-on-accent, and cream-text-
+// on-dark all clear WCAG AA (>=4.5:1 for text, >=3:1 for the accent/dark
+// border-ish pairing) — see scratchpad/palette.js for the search that found
+// these. Don't hand-tweak individual hex values without re-checking contrast.
+const BOARD_ACCENTS: Record<string, { accent: string; dark: string }> = {
+  Art: { accent: "#e27536", dark: "#743511" },
+  Learning: { accent: "#8bc15c", dark: "#3a6b0f" },
+  Social: { accent: "#e963bc", dark: "#861360" },
+  Nature: { accent: "#59c095", dark: "#0f6742" },
 };
-const DEFAULT_BOARD_ACCENT = "#82796a";
+const DEFAULT_BOARD_ACCENT = { accent: "#a89d8c", dark: "#57503f" };
 
 function boardAccent(name: string): string {
-  return BOARD_ACCENTS[name] ?? DEFAULT_BOARD_ACCENT;
+  return (BOARD_ACCENTS[name] ?? DEFAULT_BOARD_ACCENT).accent;
+}
+
+function boardAccentDark(name: string): string {
+  return (BOARD_ACCENTS[name] ?? DEFAULT_BOARD_ACCENT).dark;
 }
 
 function avatarStyle(seed: number): string {
   const i = seed % AVATAR_BG.length;
   return `background:${AVATAR_BG[i]};color:${AVATAR_INK[i]}`;
+}
+
+// Stable per-quest palette pick (hash of id) instead of array position, so a
+// single re-rendered card (Datastar-less fetch swap, see quest-board.js)
+// keeps the same accent it had in the full page render.
+export function paletteIndexFor(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % PALETTES.length;
 }
 
 function relativeDate(iso: string): string {
@@ -163,12 +181,18 @@ export function renderQuestsPage(
 ): string {
   const usersById = new Map(users.map((u) => [u.id, u]));
 
-  const cards = quests
-    .map((q, i) => renderQuestCard(q, signupsByQuest.get(q.id) ?? [], usersById, currentUserId, i))
-    .join("\n");
+  const cards = quests.length > 0
+    ? quests
+      .map((q) => renderQuestCard(q, signupsByQuest.get(q.id) ?? [], usersById, currentUserId, paletteIndexFor(q.id)))
+      .join("\n")
+    : `<div class="quest-board__empty">
+        <p>No quests posted yet on this board.</p>
+        <a href="/quests/${board.id}/new" class="quest-board__new-link">+ post the first quest</a>
+      </div>`;
 
   const currentUser = usersById.get(currentUserId);
   const accent = boardAccent(board.name);
+  const accentDark = boardAccentDark(board.name);
 
   const boardNav = boards
     .map((b) =>
@@ -187,9 +211,10 @@ export function renderQuestsPage(
           }</option>`
         )
         .join("");
-      return `<form method="get" action="/act-as" class="topbar__who">
+      return `<form method="get" action="/act-as" class="topbar__who" data-acting-as data-board-id="${board.id}">
       <span>Acting as</span>
-      <select name="uid" onchange="this.form.submit()">${userOptions}</select>
+      <select name="uid">${userOptions}</select>
+      <button type="submit" class="topbar__go">Go</button>
       <a href="/signup" class="topbar__signup-link">new here? create an account</a>
       <a href="/guild-master" class="topbar__signup-link">guild master queue</a>
     </form>`;
@@ -210,9 +235,10 @@ export function renderQuestsPage(
 <link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/quest-board.css">
 <script type="module" src="/vendor/datastar.js"></script>
+<script type="module" src="/quest-board.js"></script>
 </head>
 <body>
-<div class="page" style="--board-accent:${accent}">
+<div class="page" style="--board-accent:${accent};--board-accent-dark:${accentDark}">
   <div class="topbar">
     <span>${escapeHtml(board.name)} · ${quests.length} open quest${quests.length === 1 ? "" : "s"}</span>
     ${actingAs}
@@ -230,6 +256,49 @@ export function renderQuestsPage(
     </div>
     <div class="quest-board__grid">
       ${cards}
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// Shown instead of the old dev-only 503 when a board has no members yet
+// (fresh checkout, `deno task seed` not run) — points a real visitor at
+// `/signup` rather than a raw error page.
+export function renderEmptyBoardPage(board: Board, boards: Board[]): string {
+  const accent = boardAccent(board.name);
+  const accentDark = boardAccentDark(board.name);
+  const boardNav = boards
+    .map((b) =>
+      `<a href="/quests/${b.id}" class="board-nav__link${b.id === board.id ? " board-nav__link--active" : ""}" style="--board-accent:${boardAccent(b.name)}">${
+        escapeHtml(b.name)
+      }</a>`
+    )
+    .join("\n      ");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(board.name)} — Quest Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/quest-board.css">
+</head>
+<body>
+<div class="page" style="--board-accent:${accent};--board-accent-dark:${accentDark}">
+  <div class="topbar">
+    <span>${escapeHtml(board.name)} · no one here yet</span>
+  </div>
+  <nav class="board-nav">
+      ${boardNav}
+  </nav>
+  <div class="quest-board">
+    <div class="quest-board__empty">
+      <p>Nobody's joined ${escapeHtml(board.name)} yet.</p>
+      <a href="/signup" class="quest-board__new-link">+ create an account to get started</a>
     </div>
   </div>
 </div>

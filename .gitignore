@@ -1,3 +1,4 @@
 /.data/*
 /.clickhouse.pid
 /.direnv
+/.apikey

@@ -126,6 +126,28 @@ export async function getAffinityScores(userId: string): Promise<AffinityScore[]
   return await result.json<AffinityScore>();
 }
 
+// Categories with the most 'yes' signups on a board recently — used to
+// ground AI quest suggestions in what people on this board actually do,
+// rather than generic guesses. See src/ai.ts.
+export async function getTrendingCategories(boardId: string, limit = 5): Promise<string[]> {
+  const result = await client.query({
+    query: `
+      select category, count() as signups
+      from activity_log
+      where board_id = {board_id: UUID}
+        and event_type = 'signup'
+        and response = 'yes'
+      group by category
+      order by signups desc
+      limit {limit: UInt32}
+    `,
+    query_params: { board_id: boardId, limit },
+    format: "JSONEachRow",
+  });
+  const rows = await result.json<{ category: string; signups: string }>();
+  return rows.map((r) => r.category);
+}
+
 // ---------------------------------------------------------------------
 // Smoke test: `deno run -A src/clickhouse.ts` (requires `just up` first)
 // ---------------------------------------------------------------------

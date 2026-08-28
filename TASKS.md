@@ -113,7 +113,21 @@ now appears (using the existing `renderQuestCard`).
 
 ## Task 3 — Quest Board page (polish the existing one)
 
-**Status:** claimed by claude-task3-polish
+**Status:** done — RSVP and the acting-as switcher no longer full-page-reload
+(fetch + DOM swap in `public/quest-board.js`, plain `<form>` fallback intact
+for no-JS); empty states for "no members on this board yet" (→ `/signup`,
+`renderEmptyBoardPage` in `render.ts`, replaces the old dev-only 503) and "no
+quests on this board yet" (→ `/quests/:boardId/new`) added. Multi-board
+support (bullet 3) was already done by Task 4 by the time this was picked up.
+**Note:** `public/vendor/datastar.js` turns out to be a core-only build (just
+`data-signals`/`data-computed`, no `data-on`/backend-action plugins), so the
+no-reload wiring is hand-rolled fetch+swap rather than literal
+`data-on-click`/`data-target` — see the comment in `server.ts`'s
+`isFetchRequest`. Tested against the running dev server: RSVP via fetch
+returns a 200 HTML fragment (200/1920 bytes) and swaps just that card, a
+plain form POST still gets the classic 303 redirect; acting-as via fetch
+returns the re-rendered board (200) with the new `uid` cookie, plain GET
+still 303s; verified all 4 boards render distinct accent colors.
 
 Good news: this one's mostly built. `GET /quests` in `server.ts` +
 `renderQuestsPage`/`renderQuestCard` in `render.ts` already render live data
