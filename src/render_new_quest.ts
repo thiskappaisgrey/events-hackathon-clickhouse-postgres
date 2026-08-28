@@ -8,7 +8,7 @@ function escapeHtml(s: string): string {
     .replaceAll('"', "&quot;");
 }
 
-export function renderNewQuestPage(opts: {
+export function renderNewQuestPage(boardId: string, opts: {
   error?: string;
   title?: string;
   description?: string;
@@ -33,7 +33,7 @@ export function renderNewQuestPage(opts: {
     <h1 class="signup-card__title">Post a quest</h1>
     <p class="signup-card__subtitle">an idea for something you'd already like to do</p>
     ${error ? `<p class="signup-card__error">${escapeHtml(error)}</p>` : ""}
-    <form method="post" action="/quests/new" class="signup-form">
+    <form method="post" action="/quests/${escapeHtml(boardId)}/new" class="signup-form">
       <label class="signup-form__field">
         <span>Title</span>
         <input type="text" name="title" value="${escapeHtml(title)}" placeholder="e.g. Sunset hike at Bernal" required autocomplete="off">

@@ -179,3 +179,20 @@ body {
 .nudge-row__reason { font-size: 12px; color: #82796a; }
 .nudge-row__actions { display: flex; gap: 8px; }
 .nudge-row__actions .quest-btn { padding: 6px 12px; font-size: 12px; }
+
+.board-nav {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 18px 0 0;
+}
+.board-nav__link {
+  --board-accent: #82796a;
+  font: 400 13px var(--font-heading);
+  color: #f4efe4;
+  text-decoration: none;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--board-accent);
+  background: transparent;
+}
+.board-nav__link:hover { background: rgba(244, 239, 228, .08); }
+.board-nav__link--active { background: var(--board-accent); color: #201e1d; font-weight: 600; }

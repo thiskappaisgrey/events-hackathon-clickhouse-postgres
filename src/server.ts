@@ -7,11 +7,13 @@ import {
   createQuest,
   createUser,
   getQuest,
+  getUser,
   listBoardMembers,
   listBoards,
   listPendingNudges,
   listQuestsByBoard,
   listSignupsForQuest,
+  listUsers,
   resolveNudge,
   upsertSignup,
   type SignupResponse,
@@ -40,11 +42,14 @@ async function currentUserId(req: Request, boardId: string): Promise<string | un
   return members.some((u) => u.id === uid) ? uid : undefined;
 }
 
-async function renderBoard(req: Request): Promise<Response> {
+async function renderBoard(req: Request, boardId: string): Promise<Response> {
   const boards = await listBoards();
-  const board = boards[0];
-  if (!board) {
+  if (boards.length === 0) {
     return new Response("No board seeded yet — run `deno task seed`.", { status: 503 });
+  }
+  const board = boards.find((b) => b.id === boardId);
+  if (!board) {
+    return new Response("Unknown board", { status: 404 });
   }
 
   const users = await listBoardMembers(board.id);
@@ -66,7 +71,7 @@ async function renderBoard(req: Request): Promise<Response> {
   );
 
   const debug = new URL(req.url).searchParams.get("debug") === "1";
-  const html = renderQuestsPage(board, quests, signupsByQuest, users, uid, debug);
+  const html = renderQuestsPage(board, boards, quests, signupsByQuest, users, uid, debug);
 
   // Fire-and-forget: don't let ClickHouse being down break the page.
   logActivities(
@@ -94,7 +99,17 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
   }
 
   if (url.pathname === "/quests" && req.method === "GET") {
-    return await renderBoard(req);
+    const boards = await listBoards();
+    const board = boards[0];
+    if (!board) {
+      return new Response("No board seeded yet — run `deno task seed`.", { status: 503 });
+    }
+    return Response.redirect(new URL(`/quests/${board.id}`, url), 302);
+  }
+
+  const boardMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)$/);
+  if (boardMatch && req.method === "GET") {
+    return await renderBoard(req, boardMatch[1]);
   }
 
   if (url.pathname === "/signup" && req.method === "GET") {
@@ -135,8 +150,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     }
 
     const boards = await listBoards();
-    const board = boards[0];
-    if (board) await addBoardMember(board.id, user.id);
+    await Promise.all(boards.map((board) => addBoardMember(board.id, user.id)));
 
     return new Response(null, {
       status: 303,
@@ -149,10 +163,8 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
 
   if (url.pathname === "/act-as" && req.method === "GET") {
     const uid = url.searchParams.get("uid");
-    const boards = await listBoards();
-    const board = boards[0];
-    const members = board ? await listBoardMembers(board.id) : [];
-    if (!uid || !members.some((u) => u.id === uid)) {
+    const user = uid ? await getUser(uid) : undefined;
+    if (!user) {
       return new Response("Unknown user", { status: 400 });
     }
     return new Response(null, {
@@ -164,21 +176,20 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     });
   }
 
-  if (url.pathname === "/quests/new" && req.method === "GET") {
-    const boards = await listBoards();
-    const board = boards[0];
-    const uid = board ? await currentUserId(req, board.id) : undefined;
+  const newQuestMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)\/new$/);
+  if (newQuestMatch && req.method === "GET") {
+    const boardId = newQuestMatch[1];
+    const uid = await currentUserId(req, boardId);
     if (!uid) return Response.redirect(new URL("/signup", url), 303);
 
-    return new Response(renderNewQuestPage(), {
+    return new Response(renderNewQuestPage(boardId), {
       headers: { "content-type": "text/html; charset=utf-8" },
     });
   }
 
-  if (url.pathname === "/quests/new" && req.method === "POST") {
-    const boards = await listBoards();
-    const board = boards[0];
-    const uid = board ? await currentUserId(req, board.id) : undefined;
+  if (newQuestMatch && req.method === "POST") {
+    const boardId = newQuestMatch[1];
+    const uid = await currentUserId(req, boardId);
     if (!uid) return Response.redirect(new URL("/signup", url), 303);
 
     const form = await req.formData();
@@ -192,7 +203,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
       capacity = Number(capacityRaw);
       if (!Number.isInteger(capacity) || capacity <= 0) {
         return new Response(
-          renderNewQuestPage({
+          renderNewQuestPage(boardId, {
             error: "Capacity must be a positive whole number.",
             title,
             description,
@@ -206,7 +217,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
 
     if (!title || !category) {
       return new Response(
-        renderNewQuestPage({
+        renderNewQuestPage(boardId, {
           error: "Title and category are both required.",
           title,
           description,
@@ -218,7 +229,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     }
 
     const quest = await createQuest({
-      boardId: board!.id,
+      boardId,
       authorId: uid,
       title,
       description: description || undefined,
@@ -229,19 +240,20 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     logActivity({
       eventType: "quest_posted",
       userId: uid,
-      boardId: board!.id,
+      boardId,
       questId: quest.id,
       category: quest.category,
     }).catch((err) => console.error("activity log (quest_posted) failed:", err));
 
-    return Response.redirect(new URL("/quests", url), 303);
+    return Response.redirect(new URL(`/quests/${boardId}`, url), 303);
   }
 
   const rsvpMatch = url.pathname.match(/^\/quests\/([0-9a-f-]+)\/rsvp$/);
   if (rsvpMatch && req.method === "POST") {
-    const boards = await listBoards();
-    const board = boards[0];
-    const uid = board ? await currentUserId(req, board.id) : undefined;
+    const quest = await getQuest(rsvpMatch[1]);
+    if (!quest) return new Response("Unknown quest", { status: 404 });
+
+    const uid = await currentUserId(req, quest.board_id);
     if (!uid) return new Response("No acting user selected", { status: 400 });
 
     const form = await req.formData();
@@ -251,25 +263,20 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? 8787) }, async (req) => {
     }
     await upsertSignup(rsvpMatch[1], uid, response as SignupResponse);
 
-    const quest = await getQuest(rsvpMatch[1]);
-    if (quest) {
-      logActivity({
-        eventType: "signup",
-        userId: uid,
-        boardId: board!.id,
-        questId: quest.id,
-        category: quest.category,
-        response,
-      }).catch((err) => console.error("activity log (signup) failed:", err));
-    }
+    logActivity({
+      eventType: "signup",
+      userId: uid,
+      boardId: quest.board_id,
+      questId: quest.id,
+      category: quest.category,
+      response,
+    }).catch((err) => console.error("activity log (signup) failed:", err));
 
-    return Response.redirect(new URL("/quests", url), 303);
+    return Response.redirect(new URL(`/quests/${quest.board_id}`, url), 303);
   }
 
   if (url.pathname === "/guild-master" && req.method === "GET") {
-    const boards = await listBoards();
-    const board = boards[0];
-    const members = board ? await listBoardMembers(board.id) : [];
+    const members = await listUsers();
     const usersById = new Map(members.map((u) => [u.id, u]));
     const nudges = await listPendingNudges();
     return new Response(renderNudgesPage(nudges, usersById), {

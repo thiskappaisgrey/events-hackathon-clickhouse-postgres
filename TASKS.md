@@ -145,7 +145,14 @@ full-page-reloads.
 
 ## Task 4 — Category boards (art / learning / social / nature)
 
-**Status:** claimed by claude-task4-boards
+**Status:** done — 4 boards (Art, Learning, Social, Nature) seeded in
+`src/seed.ts`; `server.ts` routing is board-aware (`GET /quests` redirects to
+`/quests/:boardId`, `/quests/:boardId/new`, RSVP resolves its board from the
+quest); `renderQuestsPage` takes the board list and renders a `.board-nav`
+switcher with a per-board accent color; signup joins every new user to all 4
+boards. Tested against the running dev server: board switcher navigates
+between all 4, posting a quest and RSVPing both land back on the right
+board, a fresh signup joins all 4 boards, and an unknown board id 404s.
 
 Why: one quest board mixing standup comedy with category theory with swing
 dancing doesn't feel coherent — split into themed boards per interest area

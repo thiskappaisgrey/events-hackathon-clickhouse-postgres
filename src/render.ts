@@ -58,6 +58,21 @@ const PALETTES = [
 const AVATAR_BG = ["#ffc6a5", "#ccdbb2", "#dcd3c4", "#eee7db", "#e1eecc", "#f6a06b"];
 const AVATAR_INK = ["#643312", "#3d472b", "#645c50", "#474238", "#3d472b", "#40230f"];
 
+// One accent color per themed board (TASKS.md Task 4) — boards are seeded,
+// not user-created, so a name keyed lookup is fine. Falls back to a neutral
+// accent for any board name outside the 4 (shouldn't normally happen).
+const BOARD_ACCENTS: Record<string, string> = {
+  Art: "#c67139",
+  Learning: "#7a8a5e",
+  Social: "#b1568f",
+  Nature: "#3f8f6c",
+};
+const DEFAULT_BOARD_ACCENT = "#82796a";
+
+function boardAccent(name: string): string {
+  return BOARD_ACCENTS[name] ?? DEFAULT_BOARD_ACCENT;
+}
+
 function avatarStyle(seed: number): string {
   const i = seed % AVATAR_BG.length;
   return `background:${AVATAR_BG[i]};color:${AVATAR_INK[i]}`;
@@ -139,6 +154,7 @@ export function renderQuestCard(
 
 export function renderQuestsPage(
   board: Board,
+  boards: Board[],
   quests: Quest[],
   signupsByQuest: Map<string, QuestSignup[]>,
   users: User[],
@@ -152,6 +168,15 @@ export function renderQuestsPage(
     .join("\n");
 
   const currentUser = usersById.get(currentUserId);
+  const accent = boardAccent(board.name);
+
+  const boardNav = boards
+    .map((b) =>
+      `<a href="/quests/${b.id}" class="board-nav__link${b.id === board.id ? " board-nav__link--active" : ""}" style="--board-accent:${boardAccent(b.name)}">${
+        escapeHtml(b.name)
+      }</a>`
+    )
+    .join("\n      ");
 
   const actingAs = debug
     ? (() => {
@@ -187,18 +212,21 @@ export function renderQuestsPage(
 <script type="module" src="/vendor/datastar.js"></script>
 </head>
 <body>
-<div class="page">
+<div class="page" style="--board-accent:${accent}">
   <div class="topbar">
     <span>${escapeHtml(board.name)} · ${quests.length} open quest${quests.length === 1 ? "" : "s"}</span>
     ${actingAs}
   </div>
+  <nav class="board-nav">
+      ${boardNav}
+  </nav>
   <div class="quest-board">
     <div class="quest-board__header">
       <div>
         <div class="quest-board__plate"><span class="quest-board__title">The Quest Board</span></div>
         <p class="quest-board__subtitle">${escapeHtml(board.name)} · take one and it's yours to show up to</p>
       </div>
-      <a href="/quests/new" class="quest-board__new-link">+ post a quest</a>
+      <a href="/quests/${board.id}/new" class="quest-board__new-link">+ post a quest</a>
     </div>
     <div class="quest-board__grid">
       ${cards}

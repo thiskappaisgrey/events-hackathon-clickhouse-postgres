@@ -50,9 +50,19 @@ strangers/acquaintances. Flow:
   handle suffixes + `finally`-block cleanup so it's safely re-runnable.
 - `src/server.ts` — minimal `Deno.serve` HTTP server (`deno task dev`, runs on
   `:8787`, `--watch-hmr` for hot reload without dropping the Postgres pool
-  mid-edit). `/` redirects to `/Quest Board.html`; everything else is served
+  mid-edit). `/` redirects to `/quests`; everything else is served
   as static files out of `public/` via `@std/http`'s `serveDir`. `/health`
   returns `{ ok: true }`.
+- **Boards are board-aware, not hardcoded to `boards[0]`**: `GET /quests`
+  redirects to `/quests/:boardId` (the first seeded board); every other quest
+  route (`/quests/:boardId/new`, `/quests/:questId/rsvp`) is keyed off a real
+  board id — RSVP looks its board up from the quest itself rather than
+  assuming a single board. `src/seed.ts` seeds 4 themed boards (Art, Learning,
+  Social, Nature per TASKS.md Task 4); every user auto-joins all 4 on signup
+  (no join/leave UI). `renderQuestsPage` (`src/render.ts`) takes the full
+  board list and renders a `.board-nav` switcher with a per-board accent
+  color (`BOARD_ACCENTS`, keyed by board name — boards aren't user-creatable
+  yet so this is fine).
 - `public/Quest Board.html` — a **design-doc mockup** (not live app code): a
   bundled/compressed export from a design tool, containing several iterations
   ("turns") of screen concepts for this product. The one turn actually named
