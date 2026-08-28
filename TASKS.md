@@ -145,7 +145,7 @@ full-page-reloads.
 
 ## Task 4 — Category boards (art / learning / social / nature)
 
-**Status:** unclaimed
+**Status:** claimed by claude-task4-boards
 
 Why: one quest board mixing standup comedy with category theory with swing
 dancing doesn't feel coherent — split into themed boards per interest area
